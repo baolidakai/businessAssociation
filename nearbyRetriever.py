@@ -24,6 +24,7 @@ from collections import defaultdict
 from geopy.geocoders import Nominatim
 import codecs
 from apriori import runApriori
+import pickle
 
 try:
   visited = pickle.load(open('visited.p', 'rb'))
@@ -42,24 +43,30 @@ fh = codecs.open('locations.csv', encoding = 'utf-8')
 csvOutput = 'baskets.csv'
 geolocator = Nominatim()
 addrToBusiness = defaultdict(list)
-with open(csvOutput, 'w') as f:
+newBasketCnt = 0
+failCnt = 0
+with open(csvOutput, 'a') as f:
   for line in fh:
-    time.sleep(0.1)
     latitude, longitude = line.strip().split(',')
     if (latitude, longitude) in visited:
-      print('{}, {} retrieved before.'.format(latitude, longitude))
+      # print('{}, {} retrieved before.'.format(latitude, longitude))
       continue
-    visited.add((latitude, longitude))
+    time.sleep(0.1)
     url = serviceurl + urlencode({'location': '{},{}'.format(latitude, longitude)})
     js = json.loads(urlopen(url).read().decode())
     if js.get('status', None) in ['OK', 'ZERO_RESULTS']:
       print('Retrieving {} business near {}, {}'.format(len(js['results']), latitude, longitude, ))
+      newBasketCnt += 1
       basket = [result['name'].split(',')[0] for result in js['results']]
       f.write('{},{},'.format(latitude, longitude))
       f.write(','.join(basket) + '\n')
+      visited.add((latitude, longitude))
     else:
+      failCnt += 1
       print('Unable to retrieve information from {}{}'.format(latitude, longitude))
   f.close()
+print('{} locations added'.format(newBasketCnt))
+print('{} locations failed'.format(failCnt))
 
 pickle.dump(visited, open('visited.p', 'wb'))
 print('Baskets are saved in {}'.format(csvOutput))
